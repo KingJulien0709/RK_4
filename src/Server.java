@@ -10,9 +10,7 @@ import java.net.Socket;
  * methods and fields are static.
  */
 public class Server {
-	// TODO TCP-Server-Socket and -Clients-Sockets definition.
-	private static final int PORTNR = 1234;
-	private static ServerSocket serverSocket;
+	private static final int PORTNR = 2345;
 	private static Socket[] clientSockets;
 
 
@@ -34,18 +32,15 @@ public class Server {
 	 *
 	 * @param argv
 	 *            Optional command line arguments.
-	 * @throws Exception
 	 */
 	public static void main(String[] argv) throws Exception {
-		// TODO Init game and hangman.
 		initGame();
 		Hangman hangman = new Hangman();
 		writeToAll("The game has started. Let's play Hangman!");
 
 
-		while (true)// TODO Loop until solution is found or hangman is dead.
+		while (true)
 		{
-			// TODO Inform players and read input.
 			// Inform players about the current state of the game
 			writeToAll(hangman.getHangman());
 
@@ -58,10 +53,6 @@ public class Server {
 				writeToAll("The game has been aborted by a player.");
 				break; // End the game loop
 			}
-
-
-			// TODO Process input and inform players.
-			// Check for valid input and update game
 
 			if (isValidInput(input)) {
 				char letter = input.charAt(0);
@@ -77,14 +68,8 @@ public class Server {
 				writeToAllButCur("Invalid input! Please enter a letter or guess the word with '!'.");
 			}
 
-
-			// TODO Set curPlayer to next player.
-			curPlayer = (curPlayer + 1) % NUM_PLAYERS;
-
-
 		}
 
-		// TODO Inform players about the game result.
 		if (hangman.win()) {
 			writeToAll("Congratulations! The word has been guessed correctly.");
 		} else if (hangman.dead()) {
@@ -93,7 +78,6 @@ public class Server {
 
 
 
-		// TODO Close player sockets.
 		for (Socket socket : clientSockets) {
 			socket.close();
 		}
@@ -105,59 +89,42 @@ public class Server {
 	 * Initializes sockets until number of players {@link #NUM_PLAYERS
 	 * NUM_PLAYERS} is reached.
 	 *
-	 * @throws Exception
 	 */
 	private static void initGame() throws Exception {
-		// TODO Initialize sockets/arrays and current player.
-		serverSocket = new ServerSocket(PORTNR);
+		ServerSocket serverSocket = new ServerSocket(PORTNR);
 		clientSockets = new Socket[NUM_PLAYERS];
 		writers = new BufferedWriter[NUM_PLAYERS];
 		readers = new BufferedReader[NUM_PLAYERS];
 		curPlayer = 0;
 
-
-		while (true)// TODO Not all players connected
-		{
-			// TODO Initialize socket and reader/writer for every new connected
-			// player.
+		do {
 			Socket clientSocket = serverSocket.accept();
 			clientSockets[curPlayer] = clientSocket;
 			writers[curPlayer] = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
 			readers[curPlayer] = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
-
-			// TODO Welcome new player and increment current player.
 			writeToAllButCur("Player " + (curPlayer + 1) + " has joined the game!");
 			writeToAllButCur("Waiting for more players...");
-			curPlayer = (curPlayer + 1) % NUM_PLAYERS;
 
-			if (curPlayer == 0) {
-				break; // All players connected, exit the loop
+			if (curPlayer == NUM_PLAYERS - 1) {
+				break;
 			}
 
+			curPlayer = (curPlayer + 1) % NUM_PLAYERS;
+		} while (true);
 
-		}
-		// TODO Reset current player.
-		curPlayer = 0;
-
-
-		// TODO Prevent more connections to be established. Inform players about
-		// start of the game.
 		serverSocket.close();
 		writeToAll("The game is starting!");
-
-
 	}
+
 
 	/**
 	 * Writes the String s to all players.
 	 *
 	 * @param s
 	 *            The String to be sent.
-	 * @throws Exception
 	 */
 	private static void writeToAll(String s) throws Exception {
-		// TODO
 		for (BufferedWriter writer : writers) {
 			writer.write(s);
 			writer.newLine();
@@ -171,10 +138,8 @@ public class Server {
 	 *
 	 * @param s
 	 *            The String to be sent.
-	 * @throws Exception
 	 */
 	private static void writeToAllButCur(String s) throws Exception {
-		// TODO
 		for (int i = 0; i < NUM_PLAYERS; i++) {
 			if (i != curPlayer) {
 				writers[i].write(s);
@@ -182,22 +147,12 @@ public class Server {
 				writers[i].flush();
 			}
 		}
-
 	}
 
 	private static boolean isValidInput(String input) {
-		// Implement the validation logic for the user input
-		// Return true if the input is valid, false otherwise
-		// You can customize this logic based on the requirements of your game
-
-		// Example validation logic: Check if the input is a single letter or a word starting with '!'
 		if (input.length() == 1 && Character.isLetter(input.charAt(0))) {
 			return true;
-		} else if (input.length() > 1 && input.startsWith("!")) {
-			return true;
-		} else {
-			return false;
-		}
+		} else return input.length() > 1 && input.startsWith("!");
 	}
 
 }

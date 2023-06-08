@@ -63,7 +63,7 @@ public final class WebServer {
 	public static void main(String[] argv) throws Exception {
 		//Initialize socket, global variables and hangman.
 		serverSocket = new ServerSocket(80);
-		session = 0;
+		session = new Random().nextInt();
 		curPlayer = 0;
 		hangman = new Hangman();
 
@@ -90,7 +90,7 @@ public final class WebServer {
 
 		}
 		serverSocket.close();
-
+	System.exit(0);
 	}
 
 	/**
@@ -112,10 +112,13 @@ public final class WebServer {
 				+ "<PRE>[ ] [ ]-[ ]<BR>         |<BR>[ ]     [ ]<BR> |     /<BR>[ ]-[ ]<BR>____________</PRE>"
 				+ "Willkommen zu I7Hangman!<BR>Du bist Spieler ";
 		//If the player is unknown: set cookies and increment curPlayer.
-		if (playerCookie == -1) {
-			++curPlayer;
+		System.out.println("PlayerCookie: " + playerCookie);
+		if (playerCookie == -1 || sessionCookie != session) {
+			curPlayer++;
 			playerCookie = curPlayer;
 			sessionCookie = session;
+		}else if (sessionCookie == session && playerCookie != -1){
+			curPlayer = playerCookie;
 		}
 		content += curPlayer;
 
@@ -124,8 +127,12 @@ public final class WebServer {
 
 
 		//Send response to player.
-		String cookieLine = "Set-Cookie: session=" + sessionCookie + "; player=" + playerCookie + EOL;
-		sendOkResponse(bw, content, cookieLine);
+
+		String cookieLine = "Set-Cookie: session=" + session +  EOL;
+		cookieLine+="Set-Cookie: player=" + curPlayer + EOL;
+
+
+		sendOkResponse(bw, cookieLine, content);
 
 		if (curPlayer == NUM_PLAYERS) {
 			gameStarted = true;
@@ -148,42 +155,50 @@ public final class WebServer {
 		// TODO Process request and header lines.
 		String request = processHeaderLines(br, bw);
 
-
+		//System.out.println("Start processGameRequest");
 		// Construct the response message.
 		String content = "<HTML><HEAD><TITLE>Hangman</TITLE>";
 
-		if (playerCookie == curPlayer && request != null && request.startsWith("GET /?letter=")){// Player is current player and form was submitted.
-
-			String stringGuess = request.substring(14).toLowerCase();
-
-			if (true)// TODO Handle single character guess.
-			{
-
-
-
-			} else if (true)// TODO Handle word guess.
-			{
+		System.out.println(request);
+		if (playerCookie == (curPlayer+1) && request != null && request.startsWith("GET /?")){// Player is current player and form was submitted.
+			StringTokenizer st = new StringTokenizer(request, " ");
+			st.nextToken();
+			String guess = st.nextToken();
+			System.out.println("Guess: " + guess);
+			if (guess.startsWith("/?letter=")){// TODO Handle single character guess.
 
 
+				//System.out.println("Guess char: " + guess);
+				char c = guess.charAt("/?letter=".length());
+
+
+				prevMsg = hangman.checkCharHtml(c);
+
+			} else if (guess.startsWith("/?solution=")){// TODO Handle word guess.
+
+				//System.out.println("Guess word: " + guess);
+				String word = guess.substring("/?solution=".length());
+				prevMsg = hangman.checkWordHtml(word);
 
 
 
 			}
 			// TODO Set curPlayer to next player.
+			curPlayer= (curPlayer+1)%NUM_PLAYERS;
 
 			content += "<META http-equiv=\"refresh\" content=\"0;url=/\"></HEAD><BODY>"
 					+ "<PRE>[ ] [ ]-[ ]<BR>         |<BR>[ ]     [ ]<BR> |     /<BR>[ ]-[ ]<BR>____________</PRE>"
 					+ prevMsg
 					+ hangman.getHangmanHtml()
 					+ "Spieler "
-					+ curPlayer + " ist an der Reihe.";
+					+ (curPlayer+1) + " ist an der Reihe.";
 
-		} else if (true)// TODO Player is current player.
+		} else if (playerCookie == (curPlayer+1))// TODO Player is current player.
 		{
 			content += "</HEAD><BODY>"
 					+ "<PRE>[ ] [ ]-[ ]<BR>         |<BR>[ ]     [ ]<BR> |     /<BR>[ ]-[ ]<BR>____________</PRE>"
 					+ prevMsg + hangman.getHangmanHtml()
-					+ "Du bist an der Reihe, Spieler " + curPlayer + "!"
+					+ "Du bist an der Reihe, Spieler " + (curPlayer+1) + "!"
 					+ "<FORM action=\"/\" method=\"get\">";
 			for (char i = 'a'; i <= 'z'; ++i) {
 				content += "<INPUT type=\"submit\" name=\"letter\" value=\""
@@ -198,12 +213,13 @@ public final class WebServer {
 					+ prevMsg
 					+ hangman.getHangmanHtml()
 					+ "Spieler "
-					+ curPlayer + " ist an der Reihe.";
+					+ (curPlayer+1) + " ist an der Reihe.";
 		}
 		content += "</BODY></HTML>";
 
-		// TODO Send response to player.
 
+		// TODO Send response to player.
+		sendOkResponse(bw, "", content);
 
 		if (hangman.win() || hangman.dead()) {
 			gameStarted = false;
@@ -227,6 +243,8 @@ public final class WebServer {
 
 		String request = processHeaderLines(br, bw);
 
+		System.out.println("Start processEndRequest");
+
 
 		String content = "<HTML><HEAD><TITLE>Hangman</TITLE></HEAD><BODY>"
 				+ "<PRE>[ ] [ ]-[ ]<BR>         |<BR>[ ]     [ ]<BR> |     /<BR>[ ]-[ ]<BR>____________</PRE>"
@@ -234,15 +252,17 @@ public final class WebServer {
 
 		// TODO Add success/fail line with solution word.
 
-
-
-
-
+		if (hangman.win()) {
+			content += "\nIhr habt gewonnen! Das Wort war: " + hangman.getWord()+"\n";
+		} else {
+			content += "\nIhr habt verloren! Das Wort war: " + hangman.getWord()+"\n";
+		}
 
 		content += "</BODY></HTML>";
 
 		++curPlayer;
 		// TODO Send response to player.
+		sendOkResponse(bw, "", content);
 
 	}
 
@@ -266,13 +286,13 @@ public final class WebServer {
 		 * send a 404 response and return null.
 		 */
 		String request = br.readLine();
-		System.out.println(request);
+		//System.out.println(request);
 
 		if(request==null || request.isEmpty()){
 			return null;
 		}
 		StringTokenizer st = new StringTokenizer(request, " ");
-		String method = st.nextToken();
+		st.nextToken();
 		String path = st.nextToken();
 		if(path.endsWith("/favicon.ico")){
 			sendNotFoundResponse(bw);
@@ -297,12 +317,15 @@ public final class WebServer {
 			StringTokenizer st_cookies = new StringTokenizer(cookieLine, ";");
 			while (st_cookies.hasMoreTokens()) {
 				String token = st_cookies.nextToken();
+				//System.out.println(token);
 				if(token.startsWith(" player=")) {
 					String player = token.substring(8);
 					playerCookie = Integer.parseInt(player);
-				}else if(token.startsWith(" session=")){
-					String session = token.substring(9);
+					System.out.println(playerCookie);
+				}else if(token.startsWith("session=")){
+					String session = token.substring(8);
 					sessionCookie = Integer.parseInt(session);
+					//System.out.println(sessionCookie);
 				}
 			}
 		}
@@ -345,9 +368,9 @@ public final class WebServer {
 		// cookies (if not null) and the given content.
 
 		String response = "HTTP/1.1 200 OK" + EOL + "Content-Type: text/html"
-				+ EOL + cookieLines  + EOL + EOL;
-		response += content;
-
+				+ EOL + cookieLines  + EOL;
+		response += content + EOL;
+		//System.out.println(response);
 		bw.write(response);
 		bw.flush();
 
